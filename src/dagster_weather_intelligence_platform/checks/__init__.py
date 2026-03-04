@@ -7,9 +7,13 @@ from dagster_weather_intelligence_platform.checks.raw_weather_checks import (
 from dagster_weather_intelligence_platform.checks.weather_enriched_checks import (
     enriched_labels_quality_gate,
 )
+from dagster_weather_intelligence_platform.checks.ml_quality_checks import (
+    model_mae_threshold,
+)
 
 __all__ = [
     "ge_raw_hourly_basic_validations",
     "ge_raw_hourly_temperature_validations",
     "enriched_labels_quality_gate",
+    "model_mae_threshold",
 ]

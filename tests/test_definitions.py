@@ -19,6 +19,7 @@ class DefinitionsTestCase(unittest.TestCase):
                 "enriched_labels_quality_gate",
                 "ge_raw_hourly_basic_validations",
                 "ge_raw_hourly_temperature_validations",
+                "model_mae_threshold",
             },
             check_names,
         )

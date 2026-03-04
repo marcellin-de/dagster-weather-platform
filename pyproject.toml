@@ -6,13 +6,17 @@ dependencies = [
     "dagster==1.12.17",
     "dagster-dbt>=0.28.17",
     "dagster-dlt>=0.28.17",
+    "dagster-mlflow>=0.28.17",
     "dbt-core>=1.11.6",
     "dbt-duckdb>=1.10.1",
     "dlt>=1.22.2",
     "duckdb>=1.4.4",
     "great-expectations>=1.13.0",
+    "mlflow>=3.10.0",
+    "numpy>=2.2.6",
     "pandas>=2.3.3",
     "requests>=2.32.0",
+    "scikit-learn>=1.7.2",
 ]
 
 [dependency-groups]

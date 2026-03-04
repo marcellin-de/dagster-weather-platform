@@ -1,5 +1,5 @@
 [project]
-name = "weather_intelligence_platform"
+name = "dagster_weather_intelligence_platform"
 requires-python = ">=3.10,<3.15"
 version = "0.1.0"
 dependencies = [
@@ -23,9 +23,9 @@ force-include = { "pyproject.toml" = "pyproject.toml" }
 directory_type = "project"
 
 [tool.dg.project]
-root_module = "weather_intelligence_platform"
+root_module = "dagster_weather_intelligence_platform"
 registry_modules = [
-    "weather_intelligence_platform.components.*",
+    "dagster_weather_intelligence_platform.components.*",
 ]
 
 

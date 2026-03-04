@@ -5,6 +5,19 @@ __pycache__/
 
 # C extensions
 *.so
+*.dg/
+*.venv/
+*.db
+*.egg-info/
+*.egg/
+*.manifest
+*.spec
+
+# Dagster / dg local state
+/.dg/
+/.telemetry/
+/history/
+/schedules/
 
 # Distribution / packaging
 .Python
@@ -194,14 +207,10 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# Cursor
-#  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
-#  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data
-#  refer to https://docs.cursor.com/context/ignore-files
-.cursorignore
-.cursorindexingignore
-
 # Marimo
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Streamlit
+.streamlit/secrets.toml

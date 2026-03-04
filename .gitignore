@@ -8,6 +8,7 @@ __pycache__/
 *.dg/
 *.venv/
 *.db
+*.duckdb
 *.egg-info/
 *.egg/
 *.manifest
@@ -18,6 +19,7 @@ __pycache__/
 /.telemetry/
 /history/
 /schedules/
+/.dlt/
 
 # Distribution / packaging
 .Python

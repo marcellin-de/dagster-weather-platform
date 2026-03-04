@@ -1,61 +1,68 @@
-# dagster_weather_intelligence_platform
+# Dagster Weather Intelligence Platform
 
-## Getting started
+Ingestion and quality checks for Open-Meteo hourly weather data using Dagster, dlt, DuckDB, and Great Expectations.
 
-### Installing dependencies
+## Project structure
 
-**Option 1: uv**
+```text
+src/dagster_weather_intelligence_platform/
+├── defs/weather_duckdb_ingest/   # dlt source + pipeline component
+├── checks/                       # Dagster asset checks
+├── resources/                    # Shared resources (Great Expectations)
+└── definitions.py                # Composition root (assets + checks + resources)
+```
 
-Ensure [`uv`](https://docs.astral.sh/uv/) is installed following their [official documentation](https://docs.astral.sh/uv/getting-started/installation/).
+## Quick start
 
-Create a virtual environment, and install the required dependencies using _sync_:
+1. Install dependencies:
 
 ```bash
 uv sync
 ```
 
-Then, activate the virtual environment:
-
-| OS | Command |
-| --- | --- |
-| MacOS | ```source .venv/bin/activate``` |
-| Windows | ```.venv\Scripts\activate``` |
-
-**Option 2: pip**
-
-Install the python dependencies with [pip](https://pypi.org/project/pip/):
+2. Activate environment:
 
 ```bash
-python3 -m venv .venv
+source .venv/bin/activate
 ```
 
-Then activate the virtual environment:
-
-| OS | Command |
-| --- | --- |
-| MacOS | ```source .venv/bin/activate``` |
-| Windows | ```.venv\Scripts\activate``` |
-
-Install the required dependencies:
+3. Validate definitions:
 
 ```bash
-pip install -e ".[dev]"
+make check
 ```
 
-### Running Dagster
-
-Start the Dagster UI web server:
+4. Start Dagster UI:
 
 ```bash
 dg dev
 ```
 
-Open http://localhost:3000 in your browser to see the project.
+Open `http://localhost:3000`.
 
-## Learn more
+## Common commands
 
-To learn more about this template and Dagster in general:
+- `make list`: list Dagster definitions.
+- `make check`: run `dg check defs`.
+- `make test`: run unit tests.
+- `make verify`: run checks + tests.
 
-- [Dagster Documentation](https://docs.dagster.io/)
-- [Dagster University](https://courses.dagster.io/)
-- [Dagster Slack Community](https://dagster.io/slack)
+## Configuration
+
+- Default DuckDB path: `src/weather_ingest.duckdb`.
+- Override DuckDB path for checks with env var:
+
+```bash
+export WEATHER_DUCKDB_PATH=/absolute/path/to/weather_ingest.duckdb
+```
+
+## Partitions and schedule
+
+- Weather assets are partitioned daily (UTC) from `2026-01-01`.
+- A partitioned job runs assets + checks: `weather_daily_materialization_job`.
+- A daily schedule is defined: `weather_daily_schedule` (`0 6 * * *`, UTC).
+- Asset checks are configured with eager automation conditions.
+
+## Collaboration
+
+Contribution guidelines live in [`CONTRIBUTING.md`](CONTRIBUTING.md).

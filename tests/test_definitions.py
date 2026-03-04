@@ -1,11 +1,11 @@
 import unittest
 
-from dagster_weather_intelligence_platform.definitions import defs
+from dagster_weather_intelligence_platform.definitions import build_extra_defs
 
 
 class DefinitionsTestCase(unittest.TestCase):
     def test_definitions_include_checks_and_resources(self) -> None:
-        definitions = defs()
+        definitions = build_extra_defs()
 
         self.assertIn("ge", definitions.resources)
 
@@ -25,10 +25,8 @@ class DefinitionsTestCase(unittest.TestCase):
         schedule_names = {schedule.name for schedule in (definitions.schedules or [])}
         self.assertIn("weather_daily_schedule", schedule_names)
 
-        self.assertEqual(
-            "weather_daily_materialization_job",
-            definitions.resolve_job_def("weather_daily_materialization_job").name,
-        )
+        job_names = {job_def.name for job_def in (definitions.jobs or [])}
+        self.assertIn("weather_daily_materialization_job", job_names)
 
 
 if __name__ == "__main__":

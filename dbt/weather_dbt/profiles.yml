@@ -1,0 +1,14 @@
+weather_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: >-
+        {{ env_var(
+          'WEATHER_DBT_DUCKDB_PATH',
+          env_var('DAGSTER_PROJECT_ROOT', '') ~ '/src/weather_ingest.duckdb'
+          if env_var('DAGSTER_PROJECT_ROOT', '')
+          else '../../src/weather_ingest.duckdb'
+        ) }}
+      schema: analytics
+      threads: 4

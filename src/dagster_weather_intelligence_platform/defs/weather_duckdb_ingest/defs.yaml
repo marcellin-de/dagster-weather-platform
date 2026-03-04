@@ -5,5 +5,5 @@ attributes:
     - source: .loads.weather_source
       pipeline: .loads.weather_pipeline
       translation:
-        group_name: raw
+        group_name: weather_ingestion
         description: "Open-Meteo hourly weather loaded via dlt into DuckDB"

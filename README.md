@@ -7,9 +7,11 @@ Ingestion and quality checks for Open-Meteo hourly weather data using Dagster, d
 ```text
 src/dagster_weather_intelligence_platform/
 ├── defs/weather_duckdb_ingest/   # dlt source + pipeline component
+├── defs/transform/               # dbt project component
 ├── checks/                       # Dagster asset checks
 ├── resources/                    # Shared resources (Great Expectations)
-└── definitions.py                # Composition root (assets + checks + resources)
+├── orchestration.py              # Partitioned job + schedule
+└── definitions.py                # Composition root (components + checks + resources)
 ```
 
 ## Quick start
@@ -55,13 +57,23 @@ Open `http://localhost:3000`.
 ```bash
 export WEATHER_DUCKDB_PATH=/absolute/path/to/weather_ingest.duckdb
 ```
+- Override dbt DuckDB path with:
+
+```bash
+export WEATHER_DBT_DUCKDB_PATH=/absolute/path/to/weather_ingest.duckdb
+```
+
+`make up` also sets `DAGSTER_PROJECT_ROOT` automatically so dbt assets executed by Dagster resolve the shared DuckDB path correctly.
 
 ## Partitions and schedule
 
 - Weather assets are partitioned daily (UTC) from `2026-01-01`.
-- A partitioned job runs assets + checks: `weather_daily_materialization_job`.
+- A partitioned job runs ingestion + downstream dbt assets + checks: `weather_daily_materialization_job`.
 - A daily schedule is defined: `weather_daily_schedule` (`0 6 * * *`, UTC).
 - Asset checks are configured with eager automation conditions.
+- Dagster group names:
+  - `weather_ingestion` for raw source ingestion assets.
+  - `weather_analytics` for dbt transformed assets.
 
 ## Collaboration
 

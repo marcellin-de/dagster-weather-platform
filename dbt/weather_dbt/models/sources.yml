@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: raw_weather
+    description: "Raw hourly weather ingested by dlt into DuckDB."
+    schema: raw_weather
+    tables:
+      - name: open_meteo_hourly
+        description: "Hourly weather records from Open-Meteo."
+        meta:
+          dagster:
+            group: weather_ingestion

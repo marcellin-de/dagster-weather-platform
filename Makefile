@@ -1,7 +1,17 @@
 SHELL := /bin/bash
 
 DAGSTER_HOME ?= $(CURDIR)/.dg
-PYTHON ?= python
+VENV_BIN := $(CURDIR)/.venv/bin
+DG ?= $(VENV_BIN)/dg
+PYTHON ?= $(VENV_BIN)/python
+
+# Fallback when running without a local virtual environment.
+ifeq ($(wildcard $(DG)),)
+DG := dg
+endif
+ifeq ($(wildcard $(PYTHON)),)
+PYTHON := python
+endif
 
 .PHONY: list check test verify up help defs check-defs list-defs
 
@@ -17,10 +27,10 @@ help:
 
 
 list:
-	DAGSTER_HOME="$(DAGSTER_HOME)" dg list defs
+	DAGSTER_PROJECT_ROOT="$(CURDIR)" DAGSTER_HOME="$(DAGSTER_HOME)" $(DG) list defs
 
 check:
-	DAGSTER_HOME="$(DAGSTER_HOME)" dg check defs
+	DAGSTER_PROJECT_ROOT="$(CURDIR)" DAGSTER_HOME="$(DAGSTER_HOME)" $(DG) check defs
 
 test:
 	$(PYTHON) -m unittest discover -s tests -p "test_*.py" -v
@@ -36,5 +46,4 @@ check-defs: check
 list-defs: list
 
 up:
-	DAGSTER_HOME="$(DAGSTER_HOME)" dg dev
-
+	DAGSTER_PROJECT_ROOT="$(CURDIR)" DAGSTER_HOME="$(DAGSTER_HOME)" $(DG) dev

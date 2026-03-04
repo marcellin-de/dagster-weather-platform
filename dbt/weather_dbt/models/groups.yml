@@ -1,0 +1,7 @@
+version: 2
+
+groups:
+  - name: weather_analytics
+    owner:
+      name: data-platform
+      email: data-platform@example.com

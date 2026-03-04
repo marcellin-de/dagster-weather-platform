@@ -68,7 +68,9 @@ export WEATHER_DBT_DUCKDB_PATH=/absolute/path/to/weather_ingest.duckdb
 ```bash
 export WEATHER_ENRICHMENT_BACKEND=huggingface
 export HF_TOKEN=hf_xxx
-export WEATHER_HF_MODEL=google/flan-t5-base
+export WEATHER_HF_MODEL=Qwen/Qwen2.5-7B-Instruct
+# optional:
+export HF_CHAT_URL=https://router.huggingface.co/v1/chat/completions
 ```
 
 `make up` also sets `DAGSTER_PROJECT_ROOT` automatically so dbt assets executed by Dagster resolve the shared DuckDB path correctly.
@@ -82,6 +84,7 @@ export WEATHER_HF_MODEL=google/flan-t5-base
 - Dagster group names:
   - `weather_ingestion` for raw source ingestion assets.
   - `weather_analytics` for dbt transformed assets.
+- AI enrichment asset persists output to DuckDB table: `analytics.weather_daily_enriched`.
 
 ## Collaboration
 

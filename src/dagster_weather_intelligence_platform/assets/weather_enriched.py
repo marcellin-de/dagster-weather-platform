@@ -9,8 +9,8 @@ import requests
 from dagster import AssetKey, asset
 
 
-HF_API_BASE_URL = os.getenv("HF_API_BASE_URL", "https://api-inference.huggingface.co/models")
-HF_MODEL = os.getenv("WEATHER_HF_MODEL", "google/flan-t5-base")
+HF_CHAT_URL = os.getenv("HF_CHAT_URL", "https://router.huggingface.co/v1/chat/completions")
+HF_MODEL = os.getenv("WEATHER_HF_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 WEATHER_ENRICHMENT_BACKEND = os.getenv("WEATHER_ENRICHMENT_BACKEND", "huggingface")
 
 
@@ -47,6 +47,24 @@ def _read_daily(db_path: str | None = None) -> pd.DataFrame:
         con.close()
 
 
+def _persist_enriched_to_duckdb(df: pd.DataFrame, db_path: str | None = None) -> str:
+    path = db_path or _default_duckdb_path()
+    con = duckdb.connect(path, read_only=False)
+    try:
+        con.execute("create schema if not exists analytics")
+        con.register("weather_daily_enriched_df", df)
+        con.execute(
+            """
+            create or replace table analytics.weather_daily_enriched as
+            select * from weather_daily_enriched_df
+            """
+        )
+        con.unregister("weather_daily_enriched_df")
+    finally:
+        con.close()
+    return path
+
+
 @asset(group_name="weather_ai_enrichment", deps=[AssetKey("mart_weather_daily")])
 def weather_daily_enriched(
     context,
@@ -64,6 +82,7 @@ def weather_daily_enriched(
     if "day_utc" in out.columns:
         out["day_utc"] = out["day_utc"].astype(str)
     merged = payload_df.merge(out, on="day_utc", how="left")
+    db_path = _persist_enriched_to_duckdb(merged)
 
     context.add_output_metadata(
         {
@@ -71,22 +90,32 @@ def weather_daily_enriched(
             "enriched_rows": int(merged["label"].notna().sum()),
             "null_labels": int(merged["label"].isna().sum()),
             "backend": backend_used,
+            "hf_model": HF_MODEL if backend_used == "huggingface" else "",
+            "persisted_rows": len(merged),
+            "duckdb_table": "analytics.weather_daily_enriched",
+            "duckdb_path": db_path,
         }
     )
     return merged
 
 
 def _enrich_rows(rows: list[dict], context) -> tuple[list[dict], str]:
-    if WEATHER_ENRICHMENT_BACKEND in {"huggingface", "hf"}:
-        try:
-            return _enrich_with_huggingface(rows), "huggingface"
-        except Exception as exc:
-            context.log.warning("Hugging Face enrichment failed, fallback to heuristic: %s", exc)
-            return _enrich_with_heuristic(rows), "heuristic_fallback"
-    return _enrich_with_heuristic(rows), "heuristic"
+    # Utilisation stricte du backend Hugging Face
+    try:
+        enriched = _enrich_with_huggingface(rows)
+        return enriched, "huggingface"
+    except Exception as exc:
+        context.log.error("Hugging Face enrichment failed: %s", exc)
+        # On stoppe le pipeline si le modèle échoue
+        raise
 
 
-def _extract_json_array(text: str) -> list[dict]:
+def _extract_json_array(text: str | list[dict]) -> list[dict]:
+    if isinstance(text, list):
+        text = "".join(
+            part.get("text", "") if isinstance(part, dict) else str(part) for part in text
+        )
+
     cleaned = text.strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.strip("`")
@@ -114,10 +143,13 @@ def _enrich_with_huggingface(rows: list[dict]) -> list[dict]:
     if not hf_token:
         raise RuntimeError("Missing HF_TOKEN environment variable")
 
-    prompt = (
-        "You are a weather enrichment service.\n"
-        "Return ONLY a JSON array with the same length as input.\n"
-        "For each row include fields:\n"
+    system_prompt = (
+        "You are a weather enrichment service. "
+        "Return ONLY valid JSON array output. No markdown."
+    )
+    user_prompt = (
+        "Given daily weather aggregates, return a JSON array with the same length.\n"
+        "For each row include:\n"
         "- day_utc (copy exactly)\n"
         "- label: clear|cloudy|rainy|windy\n"
         "- summary: short French sentence (max 20 words)\n\n"
@@ -125,18 +157,19 @@ def _enrich_with_huggingface(rows: list[dict]) -> list[dict]:
     )
 
     response = requests.post(
-        f"{HF_API_BASE_URL}/{HF_MODEL}",
+        HF_CHAT_URL,
         headers={
             "Authorization": f"Bearer {hf_token}",
             "Content-Type": "application/json",
         },
         json={
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": 700,
-                "temperature": 0.2,
-                "return_full_text": False,
-            },
+            "model": HF_MODEL,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.2,
+            "max_tokens": 700,
         },
         timeout=120,
     )
@@ -145,13 +178,10 @@ def _enrich_with_huggingface(rows: list[dict]) -> list[dict]:
 
     if isinstance(payload, dict) and payload.get("error"):
         raise RuntimeError(payload["error"])
-
-    if isinstance(payload, list) and payload and isinstance(payload[0], dict):
-        raw_text = payload[0].get("generated_text", "")
-    elif isinstance(payload, dict):
-        raw_text = payload.get("generated_text", "")
-    else:
-        raise RuntimeError("Unexpected Hugging Face response format")
+    try:
+        raw_text = payload["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError(f"Unexpected Hugging Face chat response format: {payload}") from exc
 
     parsed = _extract_json_array(raw_text)
     if len(parsed) != len(rows):
@@ -159,33 +189,3 @@ def _enrich_with_huggingface(rows: list[dict]) -> list[dict]:
             f"Hugging Face returned {len(parsed)} rows for {len(rows)} input rows"
         )
     return parsed
-
-
-def _enrich_with_heuristic(rows: list[dict]) -> list[dict]:
-    enriched: list[dict] = []
-    for row in rows:
-        precipitation = float(row.get("total_precipitation") or 0.0)
-        wind = float(row.get("avg_wind_10m") or 0.0)
-        temp = float(row.get("avg_temp_2m") or 0.0)
-
-        if precipitation >= 2.0:
-            label = "rainy"
-            summary = "Pluie probable, prevoir parapluie."
-        elif wind >= 30.0:
-            label = "windy"
-            summary = "Vent soutenu, sorties a proteger."
-        elif precipitation < 0.2 and temp >= 24.0:
-            label = "clear"
-            summary = "Temps plutot degage et agreable."
-        else:
-            label = "cloudy"
-            summary = "Ciel nuageux avec conditions stables."
-
-        enriched.append(
-            {
-                "day_utc": str(row.get("day_utc", "")),
-                "label": label,
-                "summary": summary,
-            }
-        )
-    return enriched

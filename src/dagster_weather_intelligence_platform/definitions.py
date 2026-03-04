@@ -2,6 +2,7 @@ from pathlib import Path
 
 from dagster import Definitions, definitions, load_from_defs_folder
 from dagster_weather_intelligence_platform.checks import (
+    enriched_labels_quality_gate,
     ge_raw_hourly_basic_validations,
     ge_raw_hourly_temperature_validations,
 )
@@ -19,6 +20,7 @@ def build_extra_defs() -> Definitions:
         asset_checks=[
             ge_raw_hourly_basic_validations,
             ge_raw_hourly_temperature_validations,
+            enriched_labels_quality_gate,
         ],
         jobs=[weather_daily_materialization_job],
         schedules=[weather_daily_schedule],

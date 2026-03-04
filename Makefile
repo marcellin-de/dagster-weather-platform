@@ -12,6 +12,8 @@ export DAGSTER_HOME
 export DAGSTER_PROJECT_ROOT := $(PROJECT_ROOT)
 
 UV := uv
+UV_CACHE_DIR ?= $(PROJECT_ROOT)/.uv-cache
+export UV_CACHE_DIR
 
 # ==============================================================================
 # Meta
@@ -29,6 +31,7 @@ help:
 	@echo ""
 	@echo "Dagster:"
 	@echo "  up             Start Dagster dev server"
+	@echo "  check-db-lock  Check write access to DuckDB file"
 	@echo "  list           List Dagster definitions"
 	@echo "  check          Validate Dagster definitions"
 	@echo ""
@@ -64,7 +67,10 @@ bootstrap: sync dbt-deps
 # Dagster
 # ==============================================================================
 
-up:
+check-db-lock:
+	@$(UV) run python -c "exec('''import duckdb\nfrom pathlib import Path\n\ndb_path = Path(\"src/weather_ingest.duckdb\")\nif not db_path.exists():\n    print(f\"[ok] DuckDB file does not exist yet: {db_path}\")\n    raise SystemExit(0)\n\ntry:\n    con = duckdb.connect(str(db_path), read_only=False)\n    con.close()\n    print(f\"[ok] DuckDB is writable: {db_path}\")\nexcept Exception as exc:\n    print(f\"[error] DuckDB lock detected on {db_path}\")\n    print(\"Close any external DuckDB client (CLI/IDE) and retry.\")\n    print(f\"Details: {exc}\")\n    raise SystemExit(1)\n''')"
+
+up: check-db-lock
 	$(UV) run dg dev
 
 list:

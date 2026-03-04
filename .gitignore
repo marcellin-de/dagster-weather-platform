@@ -21,6 +21,9 @@ __pycache__/
 /schedules/
 /.dlt/
 
+.env
+
+
 # Distribution / packaging
 .Python
 build/

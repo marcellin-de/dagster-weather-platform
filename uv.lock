@@ -630,6 +630,7 @@ dependencies = [
     { name = "great-expectations" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pandas", version = "3.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "requests" },
 ]
 
 [package.dev-dependencies]
@@ -649,6 +650,7 @@ requires-dist = [
     { name = "duckdb", specifier = ">=1.4.4" },
     { name = "great-expectations", specifier = ">=1.13.0" },
     { name = "pandas", specifier = ">=2.3.3" },
+    { name = "requests", specifier = ">=2.32.0" },
 ]
 
 [package.metadata.requires-dev]

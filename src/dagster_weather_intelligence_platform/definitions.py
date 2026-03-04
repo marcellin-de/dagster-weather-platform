@@ -10,17 +10,21 @@ from dagster_weather_intelligence_platform.orchestration import (
     weather_daily_schedule,
 )
 from dagster_weather_intelligence_platform.resources import GreatExpectationsResource
+from dagster_weather_intelligence_platform.assets.weather_enriched import weather_daily_enriched
 
 
 def build_extra_defs() -> Definitions:
     return Definitions(
+        assets=[weather_daily_enriched],
         asset_checks=[
             ge_raw_hourly_basic_validations,
             ge_raw_hourly_temperature_validations,
         ],
         jobs=[weather_daily_materialization_job],
         schedules=[weather_daily_schedule],
-        resources={"ge": GreatExpectationsResource()},
+        resources={
+            "ge": GreatExpectationsResource(),
+        },
     )
 
 

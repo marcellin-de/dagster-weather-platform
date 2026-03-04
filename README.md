@@ -63,6 +63,14 @@ export WEATHER_DUCKDB_PATH=/absolute/path/to/weather_ingest.duckdb
 export WEATHER_DBT_DUCKDB_PATH=/absolute/path/to/weather_ingest.duckdb
 ```
 
+- Configure AI enrichment with Hugging Face:
+
+```bash
+export WEATHER_ENRICHMENT_BACKEND=huggingface
+export HF_TOKEN=hf_xxx
+export WEATHER_HF_MODEL=google/flan-t5-base
+```
+
 `make up` also sets `DAGSTER_PROJECT_ROOT` automatically so dbt assets executed by Dagster resolve the shared DuckDB path correctly.
 
 ## Partitions and schedule

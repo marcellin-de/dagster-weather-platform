@@ -2,7 +2,10 @@ from pathlib import Path
 
 from dagster import Definitions, definitions, load_from_defs_folder
 from dagster_weather_intelligence_platform.assets.ml.predict_next_7d import forecast_temp_next_7d
-from dagster_weather_intelligence_platform.assets.ml.train_forecast_model import train_temp_forecast_model
+from dagster_weather_intelligence_platform.assets.ml.train_forecast_model import (
+    train_temp_forecast_model,
+)
+from dagster_weather_intelligence_platform.assets.weather_enriched import weather_daily_enriched
 from dagster_weather_intelligence_platform.checks import (
     enriched_labels_quality_gate,
     ge_raw_hourly_basic_validations,
@@ -16,8 +19,10 @@ from dagster_weather_intelligence_platform.orchestration import (
     weather_model_training_daily_schedule,
     weather_model_training_job,
 )
-from dagster_weather_intelligence_platform.resources import GreatExpectationsResource, mlflow_resource
-from dagster_weather_intelligence_platform.assets.weather_enriched import weather_daily_enriched
+from dagster_weather_intelligence_platform.resources import (
+    GreatExpectationsResource,
+    mlflow_resource,
+)
 
 
 def build_extra_defs() -> Definitions:

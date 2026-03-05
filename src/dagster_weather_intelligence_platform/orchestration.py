@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from dagster import (
     AssetSelection,
@@ -24,11 +24,13 @@ INGESTION_ASSET_KEYS = (
 )
 TRAINING_ASSET_KEYS = ("train_temp_forecast_model", "forecast_temp_next_7d")
 
-INGESTION_SELECTION = AssetSelection.assets(*INGESTION_ASSET_KEYS) | AssetSelection.checks_for_assets(
-    *INGESTION_ASSET_KEYS
+INGESTION_SELECTION = (
+    AssetSelection.assets(*INGESTION_ASSET_KEYS)
+    | AssetSelection.checks_for_assets(*INGESTION_ASSET_KEYS)
 )
-TRAINING_SELECTION = AssetSelection.assets(*TRAINING_ASSET_KEYS) | AssetSelection.checks_for_assets(
-    "train_temp_forecast_model"
+TRAINING_SELECTION = (
+    AssetSelection.assets(*TRAINING_ASSET_KEYS)
+    | AssetSelection.checks_for_assets("train_temp_forecast_model")
 )
 
 
@@ -69,7 +71,7 @@ weather_model_training_daily_schedule = ScheduleDefinition(
     default_status=DefaultSensorStatus.STOPPED,
 )
 def trigger_training_after_ingestion_success(context: RunStatusSensorContext):
-    run_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    run_date = datetime.now(UTC).strftime("%Y-%m-%d")
     if context.cursor == run_date:
         return SkipReason("Training already requested for today.")
 

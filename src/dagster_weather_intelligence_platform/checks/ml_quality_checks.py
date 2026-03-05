@@ -2,7 +2,9 @@ from dagster import AssetCheckExecutionContext, AssetCheckResult, AssetCheckSeve
 
 
 @asset_check(asset="train_temp_forecast_model", blocking=True)
-def model_mae_threshold(context: AssetCheckExecutionContext, train_temp_forecast_model: dict) -> AssetCheckResult:
+def model_mae_threshold(
+    context: AssetCheckExecutionContext, train_temp_forecast_model: dict
+) -> AssetCheckResult:
     trained = bool(train_temp_forecast_model.get("trained", False))
     mae = train_temp_forecast_model.get("mae")
     if not trained or mae is None:

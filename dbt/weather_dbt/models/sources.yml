@@ -7,6 +7,20 @@ sources:
     tables:
       - name: open_meteo_hourly
         description: "Hourly weather records from Open-Meteo."
+        loaded_at_field: ts_utc
+        freshness:
+          warn_after: {count: 6, period: hour}
+          error_after: {count: 12, period: hour}
+        columns:
+          - name: ts_utc
+            tests:
+              - not_null
+          - name: temperature_2m
+            tests:
+              - not_null
+          - name: precipitation
+            tests:
+              - not_null
         meta:
           dagster:
             group: weather_ingestion

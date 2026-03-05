@@ -45,7 +45,7 @@ src/dagster_weather_intelligence_platform/
 └── definitions.py                # Dagster composition root
 ```
 
-## Portfolio Value
+## Value
 
 - Production-grade, modular, testable data pipeline design
 - Data contract implementation with `dbt` tests

@@ -22,6 +22,8 @@ __pycache__/
 /.dlt/
 
 .env
+node_modules/
+.vscode/
 
 
 # Distribution / packaging
@@ -49,6 +51,8 @@ MANIFEST
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+*.db
+mlflow.db
 
 # Installer logs
 pip-log.txt

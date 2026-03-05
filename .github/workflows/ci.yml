@@ -32,6 +32,9 @@ jobs:
       - name: Install Ruff
         run: python -m pip install "ruff==0.13.2"
 
+      - name: Autofix import ordering
+        run: ruff check --select I --fix .
+
       - name: Lint Python
         run: ruff check .
 

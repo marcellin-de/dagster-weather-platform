@@ -1,0 +1,14 @@
+FROM node:20-bookworm-slim
+
+WORKDIR /opt/platform/evidence
+
+COPY evidence/package.json evidence/package-lock.json ./
+RUN npm ci
+
+COPY evidence/ ./
+COPY docker/start-evidence.sh /usr/local/bin/start-evidence.sh
+RUN chmod +x /usr/local/bin/start-evidence.sh
+
+EXPOSE 3001
+
+CMD ["start-evidence.sh"]

@@ -1,4 +1,4 @@
-name: ci
+name: platform-ci
 
 on:
   pull_request:
@@ -7,9 +7,8 @@ on:
       - main
 
 jobs:
-  quality:
+  python-quality:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,18 +19,189 @@ jobs:
           python-version: "3.11"
 
       - name: Install uv
-        run: pip install uv
+        run: python -m pip install --upgrade pip uv
 
-      - name: Install dependencies
-        run: uv sync --dev
+      - name: Sync dependencies
+        run: uv sync --frozen --dev
 
       - name: Ensure Dagster home
         run: |
           mkdir -p .dg
           touch .dg/dagster.yaml
 
+      - name: Lint Python
+        run: uv run ruff check .
+
       - name: Validate Dagster definitions
         run: uv run bash -lc 'DAGSTER_HOME="$PWD/.dg" dg check defs'
 
       - name: Run tests
         run: uv run python -m unittest discover -s tests -p "test_*.py" -v
+
+  dbt-contracts:
+    runs-on: ubuntu-latest
+    env:
+      DAGSTER_PROJECT_ROOT: ${{ github.workspace }}
+      WEATHER_DBT_DUCKDB_PATH: ${{ github.workspace }}/src/weather_ingest.duckdb
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: python -m pip install --upgrade pip uv
+
+      - name: Sync dependencies
+        run: uv sync --frozen --dev
+
+      - name: Seed raw weather source for dbt CI
+        run: |
+          uv run python - <<'PY'
+          import duckdb
+          from pathlib import Path
+          from datetime import datetime, timedelta, timezone
+
+          db_path = Path("src/weather_ingest.duckdb")
+          db_path.parent.mkdir(parents=True, exist_ok=True)
+          con = duckdb.connect(str(db_path))
+          con.execute("create schema if not exists raw_weather;")
+          con.execute("drop table if exists raw_weather.open_meteo_hourly;")
+          con.execute(
+              """
+              create table raw_weather.open_meteo_hourly (
+                ts_utc timestamp,
+                latitude double,
+                longitude double,
+                temperature_2m double,
+                relative_humidity_2m double,
+                precipitation double,
+                wind_speed_10m double,
+                _dlt_load_id double,
+                _dlt_id varchar
+              );
+              """
+          )
+          now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+          rows = []
+          for i in range(0, 48):
+              ts = now - timedelta(hours=i)
+              rows.append(
+                  (
+                      ts.isoformat(),
+                      36.8065,
+                      10.1815,
+                      18.0 + (i % 8),
+                      45.0 + (i % 30),
+                      float(i % 4),
+                      12.0 + (i % 10),
+                      float(1000 + i),
+                      f"id_{i}",
+                  )
+              )
+          con.executemany(
+              """
+              insert into raw_weather.open_meteo_hourly
+              values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              """,
+              rows,
+          )
+          con.close()
+          PY
+
+      - name: dbt deps
+        run: uv run dbt deps --project-dir dbt/weather_dbt --profiles-dir dbt/weather_dbt
+
+      - name: dbt build (contracts + tests)
+        run: uv run dbt build --project-dir dbt/weather_dbt --profiles-dir dbt/weather_dbt
+
+  evidence-build:
+    runs-on: ubuntu-latest
+    env:
+      WEATHER_DBT_DUCKDB_PATH: ${{ github.workspace }}/src/weather_ingest.duckdb
+      DAGSTER_PROJECT_ROOT: ${{ github.workspace }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: python -m pip install --upgrade pip uv
+
+      - name: Sync dependencies
+        run: uv sync --frozen --no-dev
+
+      - name: Seed analytics tables for Evidence sources
+        run: |
+          uv run python - <<'PY'
+          import duckdb
+          from pathlib import Path
+
+          db_path = Path("src/weather_ingest.duckdb")
+          db_path.parent.mkdir(parents=True, exist_ok=True)
+          con = duckdb.connect(str(db_path))
+          con.execute("create schema if not exists analytics;")
+          con.execute("drop table if exists analytics.mart_weather_daily;")
+          con.execute("drop table if exists analytics.weather_forecast_7d;")
+          con.execute(
+              """
+              create table analytics.mart_weather_daily as
+              select * from (
+                values
+                (timestamp '2026-03-01 00:00:00', 18.0, 12.0, 22.0, 14.0, 0.0),
+                (timestamp '2026-03-02 00:00:00', 19.0, 13.0, 24.0, 15.0, 0.4),
+                (timestamp '2026-03-03 00:00:00', 20.5, 14.0, 25.0, 13.0, 1.2)
+              ) as t(day_utc, avg_temp_2m, min_temp_2m, max_temp_2m, avg_wind_10m, total_precipitation);
+              """
+          )
+          con.execute(
+              """
+              create table analytics.weather_forecast_7d as
+              select * from (
+                values
+                (timestamp '2026-03-04 00:00:00', 21.0),
+                (timestamp '2026-03-05 00:00:00', 21.3),
+                (timestamp '2026-03-06 00:00:00', 21.8)
+              ) as t(forecast_day_utc, pred_avg_temp_2m);
+              """
+          )
+          con.close()
+          PY
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: evidence/package-lock.json
+
+      - name: Install Evidence dependencies
+        run: npm ci
+        working-directory: evidence
+
+      - name: Build Evidence sources
+        run: npm run sources
+        working-directory: evidence
+
+      - name: Build Evidence site
+        run: npm run build
+        working-directory: evidence
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build compose images
+        run: docker compose build

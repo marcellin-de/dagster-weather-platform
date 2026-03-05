@@ -1,4 +1,4 @@
-type: dagster_weather_intelligence_platform.defs.weather_duckdb_ingest.partitioned_component.PartitionedDltLoadCollectionComponent
+type: dagster_dlt.DltLoadCollectionComponent
 
 attributes:
   loads:

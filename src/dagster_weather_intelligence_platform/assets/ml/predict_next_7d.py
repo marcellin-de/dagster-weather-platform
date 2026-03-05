@@ -1,10 +1,9 @@
-import duckdb
 import os
 from pathlib import Path
 
+import duckdb
 import numpy as np
 import pandas as pd
-
 from dagster import asset
 
 OUT_TABLE = "analytics.weather_forecast_7d"

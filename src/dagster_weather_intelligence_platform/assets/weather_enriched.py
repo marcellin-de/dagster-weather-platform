@@ -2,11 +2,11 @@ import json
 import os
 from pathlib import Path
 
+from dagster import AssetKey, asset
+
 import duckdb
 import pandas as pd
 import requests
-
-from dagster import AssetKey, asset
 
 
 HF_CHAT_URL = os.getenv("HF_CHAT_URL", "https://router.huggingface.co/v1/chat/completions")

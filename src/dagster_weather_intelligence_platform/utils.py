@@ -32,5 +32,7 @@ def _find_project_root() -> Path:
         if (current / _PROJECT_ROOT_SENTINEL).exists():
             return current
         current = current.parent
-    # Fallback: assume standard layout (src/<package>/utils.py → project root is two levels up)
-    return Path(__file__).resolve().parents[2]
+    raise FileNotFoundError(
+        f"Could not locate {_PROJECT_ROOT_SENTINEL} in any parent of {Path(__file__).resolve()}. "
+        "Set the DAGSTER_PROJECT_ROOT environment variable to the project root directory."
+    )

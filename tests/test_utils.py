@@ -39,7 +39,16 @@ class ResolveDuckdbPathTestCase(unittest.TestCase):
         os.environ.pop("WEATHER_DBT_DUCKDB_PATH", None)
         os.environ.pop("DAGSTER_PROJECT_ROOT", None)
         result = resolve_duckdb_path()
-        self.assertTrue(result.endswith("src/weather_ingest.duckdb"))
+        result_path = Path(result)
+        # The resolved path must be <project_root>/src/weather_ingest.duckdb
+        # and pyproject.toml must exist at the project root
+        self.assertEqual(result_path.name, "weather_ingest.duckdb")
+        self.assertEqual(result_path.parent.name, "src")
+        project_root = result_path.parent.parent
+        self.assertTrue(
+            (project_root / "pyproject.toml").exists(),
+            f"pyproject.toml not found at {project_root}",
+        )
 
 
 if __name__ == "__main__":

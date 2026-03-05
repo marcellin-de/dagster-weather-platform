@@ -3,13 +3,19 @@ version: 2
 models:
   - name: mart_weather_daily
     description: "Daily aggregated weather data for the past 30 days, including average temperature, wind speed, and total precipitation."
+    config:
+      contract:
+        enforced: true
     tests:
       - dbt_utils.recency:
           field: day_utc
           datepart: day
           interval: 1
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          min_value: 1
     columns:
       - name: day_utc
+        data_type: timestamp
         tests:
           - not_null
           - unique
@@ -18,6 +24,7 @@ models:
               interval: 1
 
       - name: avg_temp_2m
+        data_type: double
         tests:
           - not_null
           - dbt_utils.accepted_range:
@@ -25,6 +32,7 @@ models:
               max_value: 60
 
       - name: min_temp_2m
+        data_type: double
         tests:
           - not_null
           - dbt_utils.accepted_range:
@@ -34,6 +42,7 @@ models:
               expression: "<= avg_temp_2m"
 
       - name: max_temp_2m
+        data_type: double
         tests:
           - not_null
           - dbt_utils.accepted_range:
@@ -43,6 +52,7 @@ models:
               expression: ">= avg_temp_2m"
 
       - name: avg_wind_10m
+        data_type: double
         tests:
           - not_null
           - dbt_utils.accepted_range:
@@ -50,6 +60,7 @@ models:
               max_value: 150
 
       - name: total_precipitation
+        data_type: double
         tests:
           - not_null
           - dbt_utils.accepted_range:

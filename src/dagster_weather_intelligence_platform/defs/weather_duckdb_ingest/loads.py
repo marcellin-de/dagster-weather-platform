@@ -1,5 +1,6 @@
-import dlt
 import requests
+
+import dlt
 
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"

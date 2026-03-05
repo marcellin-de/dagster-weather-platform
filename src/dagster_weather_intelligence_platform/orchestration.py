@@ -1,15 +1,17 @@
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
-from dagster import AssetSelection
-from dagster import DagsterRunStatus
-from dagster import DefaultScheduleStatus
-from dagster import DefaultSensorStatus
-from dagster import RunRequest
-from dagster import RunStatusSensorContext
-from dagster import ScheduleDefinition
-from dagster import SkipReason
-from dagster import define_asset_job
-from dagster import run_status_sensor
+from dagster import (
+    AssetSelection,
+    DagsterRunStatus,
+    DefaultScheduleStatus,
+    DefaultSensorStatus,
+    RunRequest,
+    RunStatusSensorContext,
+    ScheduleDefinition,
+    SkipReason,
+    define_asset_job,
+    run_status_sensor,
+)
 
 
 WEATHER_SOURCE_ASSET_KEY = "raw_weather/open_meteo_hourly"

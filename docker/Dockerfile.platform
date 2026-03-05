@@ -1,0 +1,23 @@
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /opt/platform
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+
+COPY src ./src
+COPY dbt ./dbt
+COPY tests ./tests
+COPY docker ./docker
+COPY Makefile README.md CONTRIBUTING.md ./
+
+RUN uv sync --frozen
+RUN chmod +x /opt/platform/docker/start-dagster.sh
+
+ENV PATH="/opt/platform/.venv/bin:${PATH}" \
+    DAGSTER_PROJECT_ROOT="/opt/platform"

@@ -19,7 +19,7 @@ export UV_CACHE_DIR
 # Meta
 # ==============================================================================
 
-.PHONY: help
+.PHONY: help sync bootstrap check-db-lock up list check dbt-deps dbt-run dbt-test dbt-build test lint format verify pipeline clean compose-up compose-down compose-logs compose-ps
 
 help:
 	@echo ""
@@ -34,6 +34,12 @@ help:
 	@echo "  check-db-lock  Check write access to DuckDB file"
 	@echo "  list           List Dagster definitions"
 	@echo "  check          Validate Dagster definitions"
+	@echo ""
+	@echo "Docker Compose:"
+	@echo "  compose-up     Build and start full platform (Dagster, DuckDB, MLflow, Evidence)"
+	@echo "  compose-down   Stop and remove containers"
+	@echo "  compose-logs   Tail all service logs"
+	@echo "  compose-ps     Show service status"
 	@echo ""
 	@echo "dbt:"
 	@echo "  dbt-deps       Install dbt packages"
@@ -125,3 +131,19 @@ clean:
 	rm -rf $(DBT_DIR)/logs
 	rm -rf .pytest_cache
 	rm -rf .ruff_cache
+
+# ==============================================================================
+# Docker Compose
+# ==============================================================================
+
+compose-up:
+	docker compose up --build -d
+
+compose-down:
+	docker compose down
+
+compose-logs:
+	docker compose logs -f
+
+compose-ps:
+	docker compose ps

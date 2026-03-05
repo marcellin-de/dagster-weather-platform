@@ -11,6 +11,38 @@ from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import train_test_split
 
 
+def _log_mlflow(context, payload: dict, model: Ridge | None = None) -> None:
+    try:
+        tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
+        experiment_name = os.getenv("MLFLOW_EXPERIMENT_NAME", "weather-forecasting")
+        if tracking_uri:
+            mlflow.set_tracking_uri(tracking_uri)
+        mlflow.set_experiment(experiment_name)
+
+        nested = mlflow.active_run() is not None
+        with mlflow.start_run(run_name="train_temp_forecast_model", nested=nested):
+            mlflow.log_param("strategy", payload.get("strategy"))
+            mlflow.log_param("trained", bool(payload.get("trained", False)))
+            mlflow.log_param("required_days", int(payload.get("required_days", 5)))
+            mlflow.log_metric("available_days", int(payload.get("available_days", 0)))
+
+            mae = payload.get("mae")
+            if mae is not None:
+                mlflow.log_metric("mae", float(mae))
+
+            if payload.get("trained", False):
+                mlflow.log_param("model", "Ridge")
+                mlflow.log_param("alpha", 1.0)
+                mlflow.log_param("horizon_days", int(payload.get("horizon_days", 1)))
+                if model is not None:
+                    mlflow.sklearn.log_model(model, artifact_path="model")
+            else:
+                mlflow.log_metric("fallback_temp", float(payload.get("baseline_temp", 0.0)))
+    except Exception as exc:
+        # MLflow observability must not block data pipeline execution.
+        context.log.warning("MLflow logging skipped: %s", exc)
+
+
 def _resolve_duckdb_path() -> str:
     if os.getenv("WEATHER_DUCKDB_PATH"):
         return os.environ["WEATHER_DUCKDB_PATH"]
@@ -53,7 +85,7 @@ def _make_supervised(df: pd.DataFrame, horizon_days: int = 1) -> tuple[np.ndarra
 @asset(group_name="ml", deps=[AssetKey("mart_weather_daily")])
 def train_temp_forecast_model(context) -> dict:
     df = _load_daily_series()
-    required_days = int(os.getenv("MIN_ML_TRAIN_DAYS", "30"))
+    required_days = int(os.getenv("MIN_ML_TRAIN_DAYS", "5"))
     available_days = int(len(df))
     horizon = 1
 
@@ -80,7 +112,7 @@ def train_temp_forecast_model(context) -> dict:
                 "fallback_temp": fallback_temp,
             }
         )
-        return {
+        payload = {
             "trained": False,
             "strategy": "naive_recent_average",
             "available_days": available_days,
@@ -93,6 +125,8 @@ def train_temp_forecast_model(context) -> dict:
             "intercept": fallback_temp,
             "horizon_days": horizon,
         }
+        _log_mlflow(context, payload=payload, model=None)
+        return payload
 
     X, y = _make_supervised(df, horizon_days=horizon)
 
@@ -104,18 +138,11 @@ def train_temp_forecast_model(context) -> dict:
     preds = model.predict(X_test)
     mae = float(mean_absolute_error(y_test, preds))
 
-    mlflow.log_param("model", "Ridge")
-    mlflow.log_param("alpha", 1.0)
-    mlflow.log_param("horizon_days", horizon)
-    mlflow.log_metric("mae", mae)
-
-    mlflow.sklearn.log_model(model, artifact_path="model")
-
     context.add_output_metadata(
         {"status": "trained", "rows": len(df), "mae": mae, "strategy": "ridge_linear"}
     )
 
-    return {
+    payload = {
         "trained": True,
         "strategy": "ridge_linear",
         "available_days": available_days,
@@ -127,3 +154,5 @@ def train_temp_forecast_model(context) -> dict:
         "intercept": float(model.intercept_),
         "horizon_days": horizon,
     }
+    _log_mlflow(context, payload=payload, model=model)
+    return payload

@@ -10,8 +10,11 @@ from dagster_weather_intelligence_platform.checks import (
     model_mae_threshold,
 )
 from dagster_weather_intelligence_platform.orchestration import (
-    weather_daily_materialization_job,
-    weather_daily_schedule,
+    trigger_training_after_ingestion_success,
+    weather_ingestion_hourly_job,
+    weather_ingestion_hourly_schedule,
+    weather_model_training_daily_schedule,
+    weather_model_training_job,
 )
 from dagster_weather_intelligence_platform.resources import GreatExpectationsResource, mlflow_resource
 from dagster_weather_intelligence_platform.assets.weather_enriched import weather_daily_enriched
@@ -26,8 +29,15 @@ def build_extra_defs() -> Definitions:
             enriched_labels_quality_gate,
             model_mae_threshold,
         ],
-        jobs=[weather_daily_materialization_job],
-        schedules=[weather_daily_schedule],
+        jobs=[
+            weather_ingestion_hourly_job,
+            weather_model_training_job,
+        ],
+        schedules=[
+            weather_ingestion_hourly_schedule,
+            weather_model_training_daily_schedule,
+        ],
+        sensors=[trigger_training_after_ingestion_success],
         resources={
             "ge": GreatExpectationsResource(),
             "mlflow": mlflow_resource,

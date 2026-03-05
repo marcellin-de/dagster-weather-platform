@@ -1,32 +1,20 @@
 import json
 import os
-from pathlib import Path
-
-from dagster import AssetKey, asset
 
 import duckdb
 import pandas as pd
 import requests
+from dagster import AssetExecutionContext, AssetKey, asset
 
+from dagster_weather_intelligence_platform.utils import resolve_duckdb_path
 
 HF_CHAT_URL = os.getenv("HF_CHAT_URL", "https://router.huggingface.co/v1/chat/completions")
 HF_MODEL = os.getenv("WEATHER_HF_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 WEATHER_ENRICHMENT_BACKEND = os.getenv("WEATHER_ENRICHMENT_BACKEND", "huggingface")
 
 
-def _default_duckdb_path() -> str:
-    if os.getenv("WEATHER_DUCKDB_PATH"):
-        return os.environ["WEATHER_DUCKDB_PATH"]
-    if os.getenv("WEATHER_DBT_DUCKDB_PATH"):
-        return os.environ["WEATHER_DBT_DUCKDB_PATH"]
-    project_root = os.getenv("DAGSTER_PROJECT_ROOT")
-    if project_root:
-        return str(Path(project_root) / "src" / "weather_ingest.duckdb")
-    return str(Path(__file__).resolve().parents[3] / "src" / "weather_ingest.duckdb")
-
-
 def _read_daily(db_path: str | None = None) -> pd.DataFrame:
-    path = db_path or _default_duckdb_path()
+    path = db_path or resolve_duckdb_path()
     con = duckdb.connect(path, read_only=True)
     try:
         return con.execute(
@@ -48,7 +36,7 @@ def _read_daily(db_path: str | None = None) -> pd.DataFrame:
 
 
 def _persist_enriched_to_duckdb(df: pd.DataFrame, db_path: str | None = None) -> str:
-    path = db_path or _default_duckdb_path()
+    path = db_path or resolve_duckdb_path()
     con = duckdb.connect(path, read_only=False)
     try:
         con.execute("create schema if not exists analytics")
@@ -67,7 +55,7 @@ def _persist_enriched_to_duckdb(df: pd.DataFrame, db_path: str | None = None) ->
 
 @asset(group_name="weather_ai_enrichment", deps=[AssetKey("mart_weather_daily")])
 def weather_daily_enriched(
-    context,
+    context: AssetExecutionContext,
 ) -> pd.DataFrame:
     df = _read_daily()
 
@@ -99,7 +87,7 @@ def weather_daily_enriched(
     return merged
 
 
-def _enrich_rows(rows: list[dict], context) -> tuple[list[dict], str]:
+def _enrich_rows(rows: list[dict], context: AssetExecutionContext) -> tuple[list[dict], str]:
     # Utilisation stricte du backend Hugging Face
     try:
         enriched = _enrich_with_huggingface(rows)
@@ -118,8 +106,12 @@ def _extract_json_array(text: str | list[dict]) -> list[dict]:
 
     cleaned = text.strip()
     if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`")
-        cleaned = cleaned.replace("json\n", "", 1).strip()
+        first_newline = cleaned.find("\n")
+        if first_newline != -1:
+            cleaned = cleaned[first_newline + 1 :]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
 
     try:
         parsed = json.loads(cleaned)
@@ -144,8 +136,7 @@ def _enrich_with_huggingface(rows: list[dict]) -> list[dict]:
         raise RuntimeError("Missing HF_TOKEN environment variable")
 
     system_prompt = (
-        "You are a weather enrichment service. "
-        "Return ONLY valid JSON array output. No markdown."
+        "You are a weather enrichment service. Return ONLY valid JSON array output. No markdown."
     )
     user_prompt = (
         "Given daily weather aggregates, return a JSON array with the same length.\n"
@@ -185,7 +176,5 @@ def _enrich_with_huggingface(rows: list[dict]) -> list[dict]:
 
     parsed = _extract_json_array(raw_text)
     if len(parsed) != len(rows):
-        raise ValueError(
-            f"Hugging Face returned {len(parsed)} rows for {len(rows)} input rows"
-        )
+        raise ValueError(f"Hugging Face returned {len(parsed)} rows for {len(rows)} input rows")
     return parsed

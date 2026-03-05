@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from dagster import Definitions, definitions, load_from_defs_folder
+
 from dagster_weather_intelligence_platform.assets.ml.predict_next_7d import forecast_temp_next_7d
 from dagster_weather_intelligence_platform.assets.ml.train_forecast_model import (
     train_temp_forecast_model,

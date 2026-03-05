@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import os
 from collections.abc import Callable
-from pathlib import Path
 
 import duckdb
 import pandas as pd
@@ -15,20 +13,13 @@ from dagster import (
 )
 
 from dagster_weather_intelligence_platform.resources import GreatExpectationsResource
-
+from dagster_weather_intelligence_platform.utils import resolve_duckdb_path
 
 ASSET_KEY = ("raw_weather", "open_meteo_hourly")
-DUCKDB_PATH_ENV_VAR = "WEATHER_DUCKDB_PATH"
-DEFAULT_DUCKDB_PATH = Path(__file__).resolve().parents[2] / "weather_ingest.duckdb"
 
 
-def _resolve_duckdb_path() -> Path:
-    override = os.getenv(DUCKDB_PATH_ENV_VAR)
-    return Path(override).expanduser() if override else DEFAULT_DUCKDB_PATH
-
-
-def _read_raw_hourly_from_duckdb(db_path: Path | None = None) -> pd.DataFrame:
-    path = db_path or _resolve_duckdb_path()
+def _read_raw_hourly_from_duckdb(db_path: str | None = None) -> pd.DataFrame:
+    path = db_path or resolve_duckdb_path()
     con = duckdb.connect(str(path), read_only=True)
     try:
         return con.execute(
@@ -62,7 +53,7 @@ def _result_from_expectations(
             severity=AssetCheckSeverity.ERROR,
             metadata={
                 "error": MetadataValue.text(str(exc)),
-                "db_path": MetadataValue.path(str(_resolve_duckdb_path())),
+                "db_path": MetadataValue.path(resolve_duckdb_path()),
             },
         )
 

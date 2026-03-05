@@ -1,129 +1,161 @@
 # Dagster Weather Intelligence Platform
 
-Ingestion and quality checks for Open-Meteo hourly weather data using Dagster, dlt, DuckDB, and Great Expectations.
+End-to-end data platform to collect, transform, validate, and operationalize hourly weather data, orchestrated with Dagster and observed with MLflow.
 
-## Project structure
+## Overview
+
+This project demonstrates a modern Analytics Engineering / MLOps architecture:
+
+- Weather API ingestion with `dlt` (Open-Meteo, no API key)
+- Analytical storage in `DuckDB`
+- SQL transformations and data contracts with `dbt`
+- Orchestration and quality checks with `Dagster`
+- Model training + inference for 7-day temperature forecasts
+- ML run tracking with `MLflow`
+- Business-facing analytics with `Evidence`
+
+## Global Asset Lineage
+
+![Global Asset Lineage](docs/Global_Asset_Lineage.svg)
+
+Source file: [docs/Global_Asset_Lineage.svg](docs/Global_Asset_Lineage.svg)
+
+## Technical Architecture
+
+```text
+Open-Meteo API
+   -> dlt ingestion (raw_weather.open_meteo_hourly)
+   -> dbt staging (analytics.stg_open_meteo_hourly)
+   -> dbt mart (analytics.mart_weather_daily)
+   -> Dagster AI enrichment (analytics.weather_daily_enriched)
+   -> ML training (Ridge, MAE gate) + 7-day forecast (analytics.weather_forecast_7d)
+   -> Evidence dashboards
+```
+
+Core code:
 
 ```text
 src/dagster_weather_intelligence_platform/
-├── defs/weather_duckdb_ingest/   # dlt source + pipeline component
-├── defs/transform/               # dbt project component
-├── checks/                       # Dagster asset checks
-├── resources/                    # Shared resources (Great Expectations)
-├── orchestration.py              # Asset jobs + schedules + sensors
-└── definitions.py                # Composition root (components + checks + resources)
+├── defs/weather_duckdb_ingest/   # dlt source + pipeline
+├── defs/transform/               # dbt component
+├── assets/                       # enrichment + ML assets
+├── checks/                       # quality gates (GX + ML metrics)
+├── resources/                    # shared resources (GE, MLflow)
+├── orchestration.py              # jobs, schedules, sensor
+└── definitions.py                # Dagster composition root
 ```
 
-## Quick start
+## Portfolio Value
 
-1. Install dependencies:
+- Production-grade, modular, testable data pipeline design
+- Data contract implementation with `dbt` tests
+- Event-driven automation using schedules and sensors
+- End-to-end ML use case integrated into the same asset graph
+- Unified observability (data quality + model quality + experiment tracking)
+- Reproducible local stack (`uv`, `Makefile`, `Docker Compose`, GitHub Actions CI)
+
+## Quick Start (Local)
+
+Prerequisites:
+
+- Python `>=3.10,<3.15`
+- `uv`
+
+Install:
 
 ```bash
 uv sync
-```
-
-2. Activate environment:
-
-```bash
 source .venv/bin/activate
 ```
 
-3. Validate definitions:
+Verify:
 
 ```bash
 make check
+make test
 ```
 
-4. Start Dagster UI:
+Start Dagster:
 
 ```bash
-dg dev
+make up
 ```
 
-Open `http://localhost:3000`.
+UI Dagster: `http://localhost:3000`
 
-## Full platform with Docker Compose
-
-Run the full stack with one command:
+## Full Stack Run (Docker)
 
 ```bash
 make compose-up
 ```
 
-Services:
+Available services:
 
 - Dagster UI: `http://localhost:3000`
 - MLflow UI: `http://localhost:5000`
 - Evidence UI: `http://localhost:3001`
 
-Stop everything:
+Stop:
 
 ```bash
 make compose-down
 ```
 
-The Python services use `uv` inside Docker for reproducible dependency resolution from `pyproject.toml` + `uv.lock`.
+## Orchestration and Automation
 
-## Common commands
+- Hourly ingestion job: `weather_ingestion_hourly_job`
+- Model training job: `weather_model_training_job`
+- Ingestion schedule: `0 * * * *` (UTC)
+- Training schedule: `15 2 * * *` (UTC)
+- Sensor: `trigger_training_after_ingestion_success` (max 1 training run per UTC day after successful ingestion)
 
-- `make list`: list Dagster definitions.
-- `make check`: run `dg check defs`.
-- `make test`: run unit tests.
-- `make verify`: run checks + tests.
+## Data Quality and Model Quality
 
-## Configuration
+- Great Expectations checks on raw data (`raw_weather`)
+- Additional checks on enriched assets
+- Model quality threshold through MAE check
+- dbt data contracts enabled on key models:
+  - `analytics.stg_open_meteo_hourly`
+  - `analytics.mart_weather_daily`
 
-- Default DuckDB path: `src/weather_ingest.duckdb`.
-- Override DuckDB path for checks with env var:
+## Useful Environment Variables
+
+DuckDB:
 
 ```bash
 export WEATHER_DUCKDB_PATH=/absolute/path/to/weather_ingest.duckdb
-```
-- Override dbt DuckDB path with:
-
-```bash
 export WEATHER_DBT_DUCKDB_PATH=/absolute/path/to/weather_ingest.duckdb
 ```
 
-- Configure AI enrichment with Hugging Face:
+AI enrichment (Hugging Face):
 
 ```bash
 export WEATHER_ENRICHMENT_BACKEND=huggingface
 export HF_TOKEN=hf_xxx
 export WEATHER_HF_MODEL=Qwen/Qwen2.5-7B-Instruct
-# optional:
 export HF_CHAT_URL=https://router.huggingface.co/v1/chat/completions
 ```
 
-`make up` also sets `DAGSTER_PROJECT_ROOT` automatically so dbt assets executed by Dagster resolve the shared DuckDB path correctly.
-
-## Orchestration (Dagster)
-
-- Hourly ingestion schedule: `weather_ingestion_hourly_schedule` (`0 * * * *`, UTC).
-- Daily ML training schedule: `weather_model_training_daily_schedule` (`15 2 * * *`, UTC).
-- Sensor: `trigger_training_after_ingestion_success` triggers one training run per UTC day after successful hourly ingestion.
-- Dagster group names:
-  - `weather_ingestion` for raw source ingestion assets.
-  - `weather_analytics` for dbt transformed assets.
-- AI enrichment asset persists output to DuckDB table: `analytics.weather_daily_enriched`.
-
-## Data Contracts (dbt)
-
-- Contract enforcement enabled on:
-  - `stg_open_meteo_hourly` (incremental model)
-  - `mart_weather_daily` (table model)
-- Schema drift protection via `on_schema_change: fail`.
-- Advanced tests include recency, range checks, freshness, and row-count expectations.
-
 ## CI/CD
 
-GitHub Actions workflow (`.github/workflows/ci.yml`) includes:
+GitHub Actions pipeline (`.github/workflows/ci.yml`):
 
-- Python quality gate: lint + Dagster definition check + unit tests.
-- dbt contracts pipeline: `dbt deps` + `dbt build` on seeded CI dataset.
-- Evidence pipeline: `npm run sources` + `npm run build`.
-- Docker pipeline: `docker compose build`.
+- Lint + Dagster definitions validation + Python tests
+- dbt build with contracts/tests on seeded CI dataset
+- Build Evidence
+- Build Docker Compose images
 
-## Collaboration
+## Useful Commands
 
-Contribution guidelines live in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- `make help`: list commands
+- `make list`: list Dagster definitions
+- `make check`: validate definitions
+- `make test`: run unit tests
+- `make verify`: check + tests
+- `make pipeline`: check + tests + dbt build
+
+## Additional Documentation
+
+- Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- README dbt: [dbt/weather_dbt/README.md](dbt/weather_dbt/README.md)
+- Evidence app: [evidence/README.md](evidence/README.md)

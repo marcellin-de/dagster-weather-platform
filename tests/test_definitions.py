@@ -25,10 +25,25 @@ class DefinitionsTestCase(unittest.TestCase):
         )
 
         schedule_names = {schedule.name for schedule in (definitions.schedules or [])}
-        self.assertIn("weather_daily_schedule", schedule_names)
+        self.assertEqual(
+            {
+                "weather_ingestion_hourly_schedule",
+                "weather_model_training_daily_schedule",
+            },
+            schedule_names,
+        )
 
         job_names = {job_def.name for job_def in (definitions.jobs or [])}
-        self.assertIn("weather_daily_materialization_job", job_names)
+        self.assertEqual(
+            {
+                "weather_ingestion_hourly_job",
+                "weather_model_training_job",
+            },
+            job_names,
+        )
+
+        sensor_names = {sensor.name for sensor in (definitions.sensors or [])}
+        self.assertIn("trigger_training_after_ingestion_success", sensor_names)
 
 
 if __name__ == "__main__":

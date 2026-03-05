@@ -10,7 +10,7 @@ src/dagster_weather_intelligence_platform/
 ├── defs/transform/               # dbt project component
 ├── checks/                       # Dagster asset checks
 ├── resources/                    # Shared resources (Great Expectations)
-├── orchestration.py              # Partitioned job + schedule
+├── orchestration.py              # Asset jobs + schedules + sensors
 └── definitions.py                # Composition root (components + checks + resources)
 ```
 
@@ -41,6 +41,28 @@ dg dev
 ```
 
 Open `http://localhost:3000`.
+
+## Full platform with Docker Compose
+
+Run the full stack with one command:
+
+```bash
+make compose-up
+```
+
+Services:
+
+- Dagster UI: `http://localhost:3000`
+- MLflow UI: `http://localhost:5000`
+- Evidence UI: `http://localhost:3001`
+
+Stop everything:
+
+```bash
+make compose-down
+```
+
+The Python services use `uv` inside Docker for reproducible dependency resolution from `pyproject.toml` + `uv.lock`.
 
 ## Common commands
 
@@ -75,16 +97,32 @@ export HF_CHAT_URL=https://router.huggingface.co/v1/chat/completions
 
 `make up` also sets `DAGSTER_PROJECT_ROOT` automatically so dbt assets executed by Dagster resolve the shared DuckDB path correctly.
 
-## Partitions and schedule
+## Orchestration (Dagster)
 
-- Weather assets are partitioned daily (UTC) from `2026-01-01`.
-- A partitioned job runs ingestion + downstream dbt assets + checks: `weather_daily_materialization_job`.
-- A daily schedule is defined: `weather_daily_schedule` (`0 6 * * *`, UTC).
-- Asset checks are configured with eager automation conditions.
+- Hourly ingestion schedule: `weather_ingestion_hourly_schedule` (`0 * * * *`, UTC).
+- Daily ML training schedule: `weather_model_training_daily_schedule` (`15 2 * * *`, UTC).
+- Sensor: `trigger_training_after_ingestion_success` triggers one training run per UTC day after successful hourly ingestion.
 - Dagster group names:
   - `weather_ingestion` for raw source ingestion assets.
   - `weather_analytics` for dbt transformed assets.
 - AI enrichment asset persists output to DuckDB table: `analytics.weather_daily_enriched`.
+
+## Data Contracts (dbt)
+
+- Contract enforcement enabled on:
+  - `stg_open_meteo_hourly` (incremental model)
+  - `mart_weather_daily` (table model)
+- Schema drift protection via `on_schema_change: fail`.
+- Advanced tests include recency, range checks, freshness, and row-count expectations.
+
+## CI/CD
+
+GitHub Actions workflow (`.github/workflows/ci.yml`) includes:
+
+- Python quality gate: lint + Dagster definition check + unit tests.
+- dbt contracts pipeline: `dbt deps` + `dbt build` on seeded CI dataset.
+- Evidence pipeline: `npm run sources` + `npm run build`.
+- Docker pipeline: `docker compose build`.
 
 ## Collaboration
 

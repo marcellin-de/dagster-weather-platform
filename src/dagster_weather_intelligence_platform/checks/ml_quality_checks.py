@@ -13,7 +13,7 @@ def model_mae_threshold(context: AssetCheckExecutionContext, train_temp_forecast
                 "status": "skipped",
                 "reason": "insufficient_history_for_training",
                 "available_days": int(train_temp_forecast_model.get("available_days", 0)),
-                "required_days": int(train_temp_forecast_model.get("required_days", 30)),
+                "required_days": int(train_temp_forecast_model.get("required_days", 5)),
             },
         )
 

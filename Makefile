@@ -23,7 +23,7 @@ export UV_CACHE_DIR
 
 help:
 	@echo ""
-	@echo "Dagster Weather Intelligence Platform (uv)"
+	@echo "Dagster Weather Intelligence Platform"
 	@echo ""
 	@echo "Setup:"
 	@echo "  sync           Install dependencies via uv"

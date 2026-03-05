@@ -1,17 +1,18 @@
 import os
-from pathlib import Path
 
 import duckdb
 import mlflow
 import numpy as np
 import pandas as pd
-from dagster import AssetKey, asset
+from dagster import AssetExecutionContext, AssetKey, asset
 from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import train_test_split
 
+from dagster_weather_intelligence_platform.utils import resolve_duckdb_path
 
-def _log_mlflow(context, payload: dict, model: Ridge | None = None) -> None:
+
+def _log_mlflow(context: AssetExecutionContext, payload: dict, model: Ridge | None = None) -> None:
     try:
         tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
         experiment_name = os.getenv("MLFLOW_EXPERIMENT_NAME", "weather-forecasting")
@@ -43,19 +44,8 @@ def _log_mlflow(context, payload: dict, model: Ridge | None = None) -> None:
         context.log.warning("MLflow logging skipped: %s", exc)
 
 
-def _resolve_duckdb_path() -> str:
-    if os.getenv("WEATHER_DUCKDB_PATH"):
-        return os.environ["WEATHER_DUCKDB_PATH"]
-    if os.getenv("WEATHER_DBT_DUCKDB_PATH"):
-        return os.environ["WEATHER_DBT_DUCKDB_PATH"]
-    project_root = os.getenv("DAGSTER_PROJECT_ROOT")
-    if project_root:
-        return str(Path(project_root) / "src" / "weather_ingest.duckdb")
-    return str(Path(__file__).resolve().parents[4] / "src" / "weather_ingest.duckdb")
-
-
 def _load_daily_series() -> pd.DataFrame:
-    con = duckdb.connect(_resolve_duckdb_path(), read_only=True)
+    con = duckdb.connect(resolve_duckdb_path(), read_only=True)
     try:
         df = con.execute(
             """
@@ -83,7 +73,7 @@ def _make_supervised(df: pd.DataFrame, horizon_days: int = 1) -> tuple[np.ndarra
 
 
 @asset(group_name="ml", deps=[AssetKey("mart_weather_daily")])
-def train_temp_forecast_model(context) -> dict:
+def train_temp_forecast_model(context: AssetExecutionContext) -> dict:
     df = _load_daily_series()
     required_days = int(os.getenv("MIN_ML_TRAIN_DAYS", "5"))
     available_days = int(len(df))
@@ -98,8 +88,7 @@ def train_temp_forecast_model(context) -> dict:
 
     if available_days < required_days:
         context.log.warning(
-            "Insufficient history for model training (%s/%s days). "
-            "Using fallback strategy.",
+            "Insufficient history for model training (%s/%s days). Using fallback strategy.",
             available_days,
             required_days,
         )

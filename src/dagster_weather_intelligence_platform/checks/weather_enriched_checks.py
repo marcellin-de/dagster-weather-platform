@@ -1,7 +1,4 @@
 import duckdb
-import os
-from pathlib import Path
-
 from dagster import (
     AssetCheckExecutionContext,
     AssetCheckResult,
@@ -9,22 +6,13 @@ from dagster import (
     asset_check,
 )
 
+from dagster_weather_intelligence_platform.utils import resolve_duckdb_path
+
 TABLE_FQN = "analytics.weather_daily_enriched"
 ALLOWED = {"clear", "cloudy", "rainy", "windy"}
 
 
-def _resolve_duckdb_path() -> str:
-    if os.getenv("WEATHER_DUCKDB_PATH"):
-        return os.environ["WEATHER_DUCKDB_PATH"]
-    if os.getenv("WEATHER_DBT_DUCKDB_PATH"):
-        return os.environ["WEATHER_DBT_DUCKDB_PATH"]
-    project_root = os.getenv("DAGSTER_PROJECT_ROOT")
-    if project_root:
-        return str(Path(project_root) / "src" / "weather_ingest.duckdb")
-    return str(Path(__file__).resolve().parents[3] / "src" / "weather_ingest.duckdb")
-
-
-def _fetch_stats(db_path: str):
+def _fetch_stats(db_path: str) -> tuple[int, int, int]:
     con = duckdb.connect(db_path, read_only=True)
     try:
         total = con.execute(f"select count(*) from {TABLE_FQN}").fetchone()[0]
@@ -46,7 +34,7 @@ def _fetch_stats(db_path: str):
 
 @asset_check(asset="weather_daily_enriched", blocking=True)
 def enriched_labels_quality_gate(context: AssetCheckExecutionContext) -> AssetCheckResult:
-    db_path = _resolve_duckdb_path()
+    db_path = resolve_duckdb_path()
     total, null_labels, invalid_labels = _fetch_stats(db_path)
 
     null_rate = (null_labels / total) if total else 1.0

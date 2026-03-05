@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 
 import dagster as dg
 
-
 WEATHER_SOURCE_ASSET_KEY = "raw_weather/open_meteo_hourly"
 
 INGESTION_ASSET_KEYS = (
@@ -13,14 +12,12 @@ INGESTION_ASSET_KEYS = (
 )
 TRAINING_ASSET_KEYS = ("train_temp_forecast_model", "forecast_temp_next_7d")
 
-INGESTION_SELECTION = (
-    dg.AssetSelection.assets(*INGESTION_ASSET_KEYS)
-    | dg.AssetSelection.checks_for_assets(*INGESTION_ASSET_KEYS)
-)
-TRAINING_SELECTION = (
-    dg.AssetSelection.assets(*TRAINING_ASSET_KEYS)
-    | dg.AssetSelection.checks_for_assets("train_temp_forecast_model")
-)
+INGESTION_SELECTION = dg.AssetSelection.assets(
+    *INGESTION_ASSET_KEYS
+) | dg.AssetSelection.checks_for_assets(*INGESTION_ASSET_KEYS)
+TRAINING_SELECTION = dg.AssetSelection.assets(
+    *TRAINING_ASSET_KEYS
+) | dg.AssetSelection.checks_for_assets("train_temp_forecast_model")
 
 
 weather_ingestion_hourly_job = dg.define_asset_job(
@@ -72,8 +69,3 @@ def trigger_training_after_ingestion_success(context: dg.RunStatusSensorContext)
             "run_date": run_date,
         },
     )
-
-
-# Backward compatibility aliases
-weather_daily_materialization_job = weather_ingestion_hourly_job
-weather_daily_schedule = weather_ingestion_hourly_schedule

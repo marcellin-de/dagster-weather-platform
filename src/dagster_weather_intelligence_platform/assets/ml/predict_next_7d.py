@@ -1,27 +1,15 @@
-import os
-from pathlib import Path
-
 import duckdb
 import numpy as np
 import pandas as pd
 from dagster import asset
 
+from dagster_weather_intelligence_platform.utils import resolve_duckdb_path
+
 OUT_TABLE = "analytics.weather_forecast_7d"
 
 
-def _resolve_duckdb_path() -> str:
-    if os.getenv("WEATHER_DUCKDB_PATH"):
-        return os.environ["WEATHER_DUCKDB_PATH"]
-    if os.getenv("WEATHER_DBT_DUCKDB_PATH"):
-        return os.environ["WEATHER_DBT_DUCKDB_PATH"]
-    project_root = os.getenv("DAGSTER_PROJECT_ROOT")
-    if project_root:
-        return str(Path(project_root) / "src" / "weather_ingest.duckdb")
-    return str(Path(__file__).resolve().parents[4] / "src" / "weather_ingest.duckdb")
-
-
 def _load_daily_series() -> pd.DataFrame:
-    con = duckdb.connect(_resolve_duckdb_path(), read_only=True)
+    con = duckdb.connect(resolve_duckdb_path(), read_only=True)
     try:
         df = con.execute(
             """
@@ -67,7 +55,7 @@ def forecast_temp_next_7d(context, train_temp_forecast_model: dict) -> None:
         }
     )
 
-    con = duckdb.connect(_resolve_duckdb_path())
+    con = duckdb.connect(resolve_duckdb_path())
     try:
         con.execute("create schema if not exists analytics;")
         con.register("tmp_forecast", out)

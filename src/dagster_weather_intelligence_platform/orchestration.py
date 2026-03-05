@@ -1,17 +1,6 @@
 from datetime import UTC, datetime
 
-from dagster import (
-    AssetSelection,
-    DagsterRunStatus,
-    DefaultScheduleStatus,
-    DefaultSensorStatus,
-    RunRequest,
-    RunStatusSensorContext,
-    ScheduleDefinition,
-    SkipReason,
-    define_asset_job,
-    run_status_sensor,
-)
+import dagster as dg
 
 
 WEATHER_SOURCE_ASSET_KEY = "raw_weather/open_meteo_hourly"
@@ -25,58 +14,58 @@ INGESTION_ASSET_KEYS = (
 TRAINING_ASSET_KEYS = ("train_temp_forecast_model", "forecast_temp_next_7d")
 
 INGESTION_SELECTION = (
-    AssetSelection.assets(*INGESTION_ASSET_KEYS)
-    | AssetSelection.checks_for_assets(*INGESTION_ASSET_KEYS)
+    dg.AssetSelection.assets(*INGESTION_ASSET_KEYS)
+    | dg.AssetSelection.checks_for_assets(*INGESTION_ASSET_KEYS)
 )
 TRAINING_SELECTION = (
-    AssetSelection.assets(*TRAINING_ASSET_KEYS)
-    | AssetSelection.checks_for_assets("train_temp_forecast_model")
+    dg.AssetSelection.assets(*TRAINING_ASSET_KEYS)
+    | dg.AssetSelection.checks_for_assets("train_temp_forecast_model")
 )
 
 
-weather_ingestion_hourly_job = define_asset_job(
+weather_ingestion_hourly_job = dg.define_asset_job(
     name="weather_ingestion_hourly_job",
     selection=INGESTION_SELECTION,
     description="Ingest weather API data, run transforms and quality checks every hour.",
 )
 
-weather_model_training_job = define_asset_job(
+weather_model_training_job = dg.define_asset_job(
     name="weather_model_training_job",
     selection=TRAINING_SELECTION,
     description="Train and score weather forecast model assets.",
 )
 
-weather_ingestion_hourly_schedule = ScheduleDefinition(
+weather_ingestion_hourly_schedule = dg.ScheduleDefinition(
     name="weather_ingestion_hourly_schedule",
     job=weather_ingestion_hourly_job,
     cron_schedule="0 * * * *",
     execution_timezone="UTC",
-    default_status=DefaultScheduleStatus.STOPPED,
+    default_status=dg.DefaultScheduleStatus.STOPPED,
 )
 
-weather_model_training_daily_schedule = ScheduleDefinition(
+weather_model_training_daily_schedule = dg.ScheduleDefinition(
     name="weather_model_training_daily_schedule",
     job=weather_model_training_job,
     cron_schedule="15 2 * * *",
     execution_timezone="UTC",
-    default_status=DefaultScheduleStatus.STOPPED,
+    default_status=dg.DefaultScheduleStatus.STOPPED,
 )
 
 
-@run_status_sensor(
-    run_status=DagsterRunStatus.SUCCESS,
+@dg.run_status_sensor(
+    run_status=dg.DagsterRunStatus.SUCCESS,
     monitored_jobs=[weather_ingestion_hourly_job],
     request_job=weather_model_training_job,
     minimum_interval_seconds=300,
-    default_status=DefaultSensorStatus.STOPPED,
+    default_status=dg.DefaultSensorStatus.STOPPED,
 )
-def trigger_training_after_ingestion_success(context: RunStatusSensorContext):
+def trigger_training_after_ingestion_success(context: dg.RunStatusSensorContext):
     run_date = datetime.now(UTC).strftime("%Y-%m-%d")
     if context.cursor == run_date:
-        return SkipReason("Training already requested for today.")
+        return dg.SkipReason("Training already requested for today.")
 
     context.update_cursor(run_date)
-    return RunRequest(
+    return dg.RunRequest(
         run_key=f"training-{run_date}",
         tags={
             "trigger": "ingestion_success_sensor",

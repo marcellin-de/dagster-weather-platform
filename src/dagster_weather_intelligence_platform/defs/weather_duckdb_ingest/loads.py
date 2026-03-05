@@ -1,5 +1,3 @@
-import requests
-
 import dlt
 
 
@@ -33,6 +31,8 @@ def open_meteo_source(latitude: float = 36.8065, longitude: float = 10.1815):
 
     @dlt.resource(name="open_meteo_hourly", write_disposition="append")
     def open_meteo_hourly():
+        import requests
+
         params = {
             "latitude": latitude,
             "longitude": longitude,

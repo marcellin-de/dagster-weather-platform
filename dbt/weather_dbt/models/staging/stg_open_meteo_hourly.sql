@@ -2,7 +2,8 @@
     materialized='incremental',
     unique_key='ts_utc',
     incremental_strategy='delete+insert',
-    on_schema_change='sync_all_columns'
+    on_schema_change='fail',
+    contract={'enforced': true}
 ) }}
 
 with source_rows as (
